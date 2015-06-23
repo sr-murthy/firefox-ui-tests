@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import unittest
+
 from marionette_driver.errors import NoSuchElementException
 
 from firefox_ui_harness.decorators import skip_under_xvfb
@@ -94,7 +96,7 @@ class TestAutoCompleteResults(FirefoxTestCase):
         self.assertFalse(autocompleteresults.is_open)
         self.browser.navbar.locationbar.urlbar.send_keys('a')
         results = autocompleteresults.results
-        self.wait_for_condition(lambda _: autocompleteresults.is_open)
+        self.wait_for_condition(lambda _: autocompleteresults.is_complete)
         visible_result_count = len(autocompleteresults.visible_results)
         self.assertTrue(visible_result_count > 0)
         self.assertEqual(visible_result_count,
@@ -120,21 +122,25 @@ class TestAutoCompleteResults(FirefoxTestCase):
 
     @skip_under_xvfb
     def test_matching_text(self):
-        # TODO: This test is not very robust because it relies on the history
-        # in the default profile.
+        # The default profile always has links to mozilla.org. So multiple results
+        # will be found with 'moz'.
+        input_text = 'moz'
+
         autocompleteresults = self.browser.navbar.locationbar.autocomplete_results
-        input_text = 'a'
         self.browser.navbar.locationbar.urlbar.send_keys(input_text)
-        self.wait_for_condition(lambda _: autocompleteresults.is_open)
+        self.wait_for_condition(lambda _: autocompleteresults.is_complete)
         visible_results = autocompleteresults.visible_results
         self.assertTrue(len(visible_results) > 0)
         for result in visible_results:
+            # check matching text only for results of type bookmark
+            if result.get_attribute('type') != 'bookmark':
+                continue
             title_matches = autocompleteresults.get_matching_text(result, "title")
             url_matches = autocompleteresults.get_matching_text(result, "url")
             all_matches = title_matches + url_matches
             self.assertTrue(len(all_matches) > 0)
             for match_fragment in all_matches:
-                self.assertIn(match_fragment, (input_text, input_text.upper()))
+                self.assertIn(match_fragment.lower(), input_text)
 
 
 class TestIdentityPopup(FirefoxTestCase):
@@ -168,10 +174,12 @@ class TestIdentityPopup(FirefoxTestCase):
         self.identity_popup.box.click()
         self.wait_for_condition(lambda _: self.identity_popup.is_open)
 
-        self.assertEqual(self.identity_popup.encryption_label.get_attribute('localName'),
-                         'description')
-        self.assertEqual(self.identity_popup.encryption_icon.get_attribute('localName'), 'image')
-        self.assertEqual(self.identity_popup.host.get_attribute('localName'), 'description')
+        self.assertEqual(self.identity_popup.icon.get_attribute('localName'), 'image')
+        self.assertEqual(self.identity_popup.secure_connection_label.get_attribute('localName'),
+                         'label')
+        self.assertEqual(self.identity_popup.host.get_attribute('localName'), 'label')
+        self.assertEqual(self.identity_popup.insecure_connection_label.get_attribute('localName'),
+                         'label')
         self.assertEqual(self.identity_popup.more_info_button.get_attribute('localName'),
                          'button')
         self.assertEqual(self.identity_popup.owner.get_attribute('localName'), 'description')

@@ -2,11 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from marionette_driver import Wait
+
 from firefox_ui_harness.decorators import skip_under_xvfb
 from firefox_ui_harness import FirefoxTestCase
 
 
-@skip_under_xvfb
 class TestEscapeAutocomplete(FirefoxTestCase):
 
     def setUp(self):
@@ -31,6 +32,7 @@ class TestEscapeAutocomplete(FirefoxTestCase):
         self.autocomplete_results.close(force=True)
         FirefoxTestCase.tearDown(self)
 
+    @skip_under_xvfb
     def test_escape_autocomplete(self):
         # Open some local pages
         def load_urls():
@@ -43,12 +45,12 @@ class TestEscapeAutocomplete(FirefoxTestCase):
         self.locationbar.clear()
         self.locationbar.urlbar.send_keys(self.test_string)
         self.assertEqual(self.locationbar.value, self.test_string)
-        self.wait_for_condition(lambda _: self.autocomplete_results.is_open)
+        Wait(self.marionette).until(lambda _: self.autocomplete_results.is_open)
 
         # Press escape, check location bar value, check autocomplete list closed
         self.locationbar.urlbar.send_keys(self.keys.ESCAPE)
         self.assertEqual(self.locationbar.value, self.test_string)
-        self.wait_for_condition(lambda _: not self.autocomplete_results.is_open)
+        Wait(self.marionette).until(lambda _: not self.autocomplete_results.is_open)
 
         # Press escape again and check that locationbar returns to the page url
         self.locationbar.urlbar.send_keys(self.keys.ESCAPE)

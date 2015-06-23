@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from marionette_driver import Wait
 from marionette_driver.errors import NoSuchElementException
 
 from firefox_ui_harness.decorators import skip_under_xvfb
@@ -46,28 +47,33 @@ class TestEVCertificate(FirefoxTestCase):
         # Check the favicon
         # TODO: find a better way to check, e.g., mozmill's isDisplayed
         favicon = self.browser.navbar.locationbar.favicon
-        self.wait_for_condition(lambda _: favicon.get_attribute('hidden') == 'false')
+        Wait(self.marionette).until(lambda _: favicon.get_attribute('hidden') == 'false')
 
         # Check the identity popup box
         self.assertEqual(self.identity_popup.box.get_attribute('className'),
                          'verifiedIdentity')
 
         self.identity_popup.box.click()
-        self.wait_for_condition(lambda _: self.identity_popup.is_open)
+        Wait(self.marionette).until(lambda _: self.identity_popup.is_open)
 
         # Check the idenity popup doorhanger
         self.assertEqual(self.identity_popup.popup.get_attribute('className'),
                          'verifiedIdentity')
 
         # Check that the lock icon is visible
-        self.assertNotEqual(self.identity_popup.encryption_icon.
-                            value_of_css_property('list-style-image'), 'none')
+        self.assertNotEqual(self.identity_popup.icon.value_of_css_property('list-style-image'),
+                            'none')
 
-        # Check the certificate's domain name
-        # Bug 443116 - Larry strips the 'www.' from the host name using the eTLDservice.
-        # This is expected behavior.
-        self.assertEqual(self.identity_popup.host.get_attribute('textContent'),
-                         self.security.get_domain_from_common_name(cert['commonName']))
+        # For EV certificates no hostname but the organization name is shown
+        self.assertEqual(self.identity_popup.host.get_attribute('value'),
+                         cert['organization'])
+
+        # Only the secure label is visible
+        secure_label = self.identity_popup.secure_connection_label
+        self.assertNotEqual(secure_label.value_of_css_property('display'), 'none')
+
+        insecure_label = self.identity_popup.insecure_connection_label
+        self.assertEqual(insecure_label.value_of_css_property('display'), 'none')
 
         # Check the organization name
         self.assertEqual(self.identity_popup.owner.get_attribute('textContent'),
@@ -87,10 +93,6 @@ class TestEVCertificate(FirefoxTestCase):
         l10n_verifier = l10n_verifier.replace('%S', cert['issuerOrganization'])
         self.assertEqual(self.identity_popup.verifier.get_attribute('textContent'),
                          l10n_verifier)
-
-        # Check the encryption label
-        self.assertEqual(self.identity_popup.encryption_label.get_attribute('textContent'),
-                         self.browser.get_property('identity.encrypted2'))
 
         # Open the Page Info window by clicking the More Information button
         page_info = self.browser.open_page_info_window(

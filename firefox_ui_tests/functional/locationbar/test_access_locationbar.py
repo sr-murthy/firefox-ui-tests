@@ -2,11 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from marionette_driver import Wait
+
 from firefox_ui_harness.decorators import skip_under_xvfb
 from firefox_ui_harness import FirefoxTestCase
 
 
-@skip_under_xvfb
 class TestAccessLocationBar(FirefoxTestCase):
 
     def setUp(self):
@@ -27,6 +28,7 @@ class TestAccessLocationBar(FirefoxTestCase):
         self.autocomplete_results = self.locationbar.autocomplete_results
         self.urlbar = self.locationbar.urlbar
 
+    @skip_under_xvfb
     def test_access_locationbar_history(self):
 
         # Open some local pages, then about:blank
@@ -45,13 +47,13 @@ class TestAccessLocationBar(FirefoxTestCase):
         # Verify that autocomplete is open and results are displayed
         self.locationbar.clear()
         self.urlbar.send_keys(self.keys.ARROW_DOWN)
-        self.wait_for_condition(lambda _: self.autocomplete_results.is_open)
-        self.wait_for_condition(lambda _: len(self.autocomplete_results.visible_results) > 1)
+        Wait(self.marionette).until(lambda _: self.autocomplete_results.is_open)
+        Wait(self.marionette).until(lambda _: len(self.autocomplete_results.visible_results) > 1)
 
         # Arrow down again to select first item in list, appearing in reversed order, as loaded.
         # Verify first item.
         self.urlbar.send_keys(self.keys.ARROW_DOWN)
-        self.wait_for_condition(lambda _: self.autocomplete_results.selected_index == '0')
+        Wait(self.marionette).until(lambda _: self.autocomplete_results.selected_index == '0')
         self.assertIn('mission', self.locationbar.value)
 
         # Navigate to the currently selected url

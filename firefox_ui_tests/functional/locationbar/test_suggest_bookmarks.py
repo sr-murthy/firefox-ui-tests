@@ -2,28 +2,27 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from marionette_driver import By
+from marionette_driver import By, Wait
 
 from firefox_ui_harness.decorators import skip_under_xvfb
 from firefox_ui_harness import FirefoxTestCase
 
 
-@skip_under_xvfb
 class TestStarInAutocomplete(FirefoxTestCase):
     """ This replaces
     http://hg.mozilla.org/qa/mozmill-tests/file/default/firefox/tests/functional/testAwesomeBar/testSuggestBookmarks.js
     Check a star appears in autocomplete list for a bookmarked page.
     """
 
-    PREF_LOCATION_BAR_SUGGEST = 'browser.urlbar.default.behavior'
+    PREF_SUGGEST_SEARCHES = 'browser.urlbar.suggest.searches'
 
     def setUp(self):
         FirefoxTestCase.setUp(self)
 
         self.test_urls = [self.marionette.absolute_url('layout/mozilla_grants.html')]
 
-        # Location bar suggests 'History and Bookmarks'
-        self.prefs.set_pref(self.PREF_LOCATION_BAR_SUGGEST, 0)
+        # Disable search suggestions to only get results for history and bookmarks
+        self.prefs.set_pref(self.PREF_SUGGEST_SEARCHES, False)
 
         with self.marionette.using_context('content'):
             self.marionette.navigate('about:blank')
@@ -38,6 +37,7 @@ class TestStarInAutocomplete(FirefoxTestCase):
         finally:
             FirefoxTestCase.tearDown(self)
 
+    @skip_under_xvfb
     def test_star_in_autocomplete(self):
         search_string = 'grants'
 
@@ -51,11 +51,13 @@ class TestStarInAutocomplete(FirefoxTestCase):
         self.places.wait_for_visited(self.test_urls, visit_urls)
 
         # Bookmark the current page using the bookmark menu
-        # TODO: Convert to l10n friendly accessor when menu library is available
-        self.browser.menubar.select('Bookmarks', 'Bookmark This Page')
+        # Bug 1121710: Needs fixed Menu class. Until then click the menuentry directly.
+        bookmark_menuitem = self.marionette.find_element(By.ID, 'menu_bookmarkThisPage')
+        bookmark_menuitem.click()
+
         # TODO: Replace hard-coded selector with library method when one is available
         done_button = self.marionette.find_element(By.ID, 'editBookmarkPanelDoneButton')
-        self.wait_for_condition(lambda mn: done_button.is_displayed)
+        Wait(self.marionette).until(lambda mn: done_button.is_displayed)
         done_button.click()
 
         # We must open the blank page so the autocomplete result isn't "Switch to tab"
@@ -72,15 +74,15 @@ class TestStarInAutocomplete(FirefoxTestCase):
 
         # Wait for the search string to be present, for the autocomplete results to appear
         # and for there to be exactly one autocomplete result
-        self.wait_for_condition(lambda mn: locationbar.value == search_string)
-        self.wait_for_condition(lambda mn: autocomplete_results.is_open)
-        self.wait_for_condition(lambda mn: len(autocomplete_results.visible_results) == 1)
+        Wait(self.marionette).until(lambda mn: locationbar.value == search_string)
+        Wait(self.marionette).until(lambda mn: autocomplete_results.is_open)
+        Wait(self.marionette).until(lambda mn: len(autocomplete_results.visible_results) == 2)
 
         # Compare the highlighted text in the autocomplete result to the search string
-        first_result = autocomplete_results.visible_results[0]
+        first_result = autocomplete_results.visible_results[1]
         matching_titles = autocomplete_results.get_matching_text(first_result, 'title')
         for title in matching_titles:
-            self.wait_for_condition(lambda mn: title.lower() == search_string)
+            Wait(self.marionette).until(lambda mn: title.lower() == search_string)
 
         self.assertIn('bookmark',
                       first_result.get_attribute('type'),

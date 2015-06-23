@@ -4,7 +4,7 @@
 
 import time
 
-from marionette_driver import By, expected
+from marionette_driver import By, expected, Wait
 
 from firefox_ui_harness import FirefoxTestCase
 
@@ -15,6 +15,14 @@ class TestSafeBrowsingNotificationBar(FirefoxTestCase):
         FirefoxTestCase.setUp(self)
 
         self.test_data = [
+            # Unwanted software URL
+            {
+                # First two properties are not needed,
+                # since these errors are not reported
+                'button_property': None,
+                'report_page': None,
+                'unsafe_page': 'https://www.itisatrap.org/firefox/unwanted.html'
+            },
             # Phishing URL info
             {
                 'button_property': 'safebrowsing.notAForgeryButton.label',
@@ -51,16 +59,18 @@ class TestSafeBrowsingNotificationBar(FirefoxTestCase):
     def test_notification_bar(self):
         with self.marionette.using_context('content'):
             for item in self.test_data:
-                label = item['button_property']
+                button_property = item['button_property']
                 report_page, unsafe_page = item['report_page'], item['unsafe_page']
 
                 # Navigate to the unsafe page
                 # Check "ignore warning" link then notification bar's "not badware" button
-                self.marionette.navigate(unsafe_page)
-                # Wait for the DOM to receive events for about:blocked
-                time.sleep(1)
-                self.check_ignore_warning_button(unsafe_page)
-                self.check_not_badware_button(label, report_page)
+                # Only do this if feature supports it
+                if button_property is not None:
+                    self.marionette.navigate(unsafe_page)
+                    # Wait for the DOM to receive events for about:blocked
+                    time.sleep(1)
+                    self.check_ignore_warning_button(unsafe_page)
+                    self.check_not_badware_button(button_property, report_page)
 
                 # Return to the unsafe page
                 # Check "ignore warning" link then notification bar's "get me out" button
@@ -83,8 +93,8 @@ class TestSafeBrowsingNotificationBar(FirefoxTestCase):
         button = self.marionette.find_element(By.ID, 'ignoreWarningButton')
         button.click()
 
-        self.wait_for_condition(expected.element_stale(button))
-        self.wait_for_condition(expected.element_present(By.ID, 'main-feature'))
+        Wait(self.marionette).until(expected.element_stale(button))
+        Wait(self.marionette).until(expected.element_present(By.ID, 'main-feature'))
         self.assertEquals(self.marionette.get_url(), self.browser.get_final_url(unsafe_page))
 
         # Clean up here since the permission gets set in this function
@@ -100,7 +110,7 @@ class TestSafeBrowsingNotificationBar(FirefoxTestCase):
 
             self.browser.tabbar.open_tab(lambda _: button.click())
 
-        self.wait_for_condition(lambda mn: report_page in mn.get_url())
+        Wait(self.marionette).until(lambda mn: report_page in mn.get_url())
         with self.marionette.using_context('chrome'):
             self.browser.tabbar.close_tab()
 
@@ -112,7 +122,7 @@ class TestSafeBrowsingNotificationBar(FirefoxTestCase):
                       .find_element('anon attribute', {'label': label}))
             button.click()
 
-        self.wait_for_condition(lambda mn: self.browser.default_homepage in mn.get_url())
+        Wait(self.marionette).until(lambda mn: self.browser.default_homepage in mn.get_url())
 
     def check_x_button(self):
         with self.marionette.using_context('chrome'):
@@ -122,4 +132,4 @@ class TestSafeBrowsingNotificationBar(FirefoxTestCase):
                       .find_element('anon attribute',
                                     {'class': 'messageCloseButton close-icon tabbable'}))
             button.click()
-            self.wait_for_condition(expected.element_stale(button))
+            Wait(self.marionette).until(expected.element_stale(button))
