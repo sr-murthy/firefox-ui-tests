@@ -6,7 +6,7 @@ from collections import namedtuple
 
 from marionette_driver.errors import MarionetteException, TimeoutException
 
-from ..base import BaseLib
+from firefox_puppeteer.base import BaseLib
 
 
 class Places(BaseLib):
@@ -104,6 +104,25 @@ class Places(BaseLib):
             raise errors.MarionetteException("Restore Default Bookmarks failed")
 
     # Browser history related helpers #
+
+    def get_all_urls_in_history(self):
+        return self.marionette.execute_script("""
+          let hs = Cc["@mozilla.org/browser/nav-history-service;1"]
+                   .getService(Ci.nsINavHistoryService);
+          let urls = [];
+
+          let options = hs.getNewQueryOptions();
+          options.resultType = options.RESULTS_AS_URI;
+
+          let root = hs.executeQuery(hs.getNewQuery(), options).root
+          root.containerOpen = true;
+          for (let i = 0; i < root.childCount; i++) {
+            urls.push(root.getChild(i).uri)
+          }
+          root.containerOpen = false;
+
+          return urls;
+        """)
 
     def remove_all_history(self):
         """Removes all history items."""
